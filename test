@@ -1,0 +1,76 @@
+import cv2
+import numpy as np
+import pandas as pd
+from PIL import Image
+from matplotlib import pyplot as plt
+
+def _contours(image: np.array) -> np.array:
+    """
+    Finds the contours of an image
+    
+    Parameters
+    ----------
+    image: numpy.array
+    """
+    grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    _, binary = cv2.threshold(grayscale, 127, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    return contours
+
+def _center_point(contour) -> tuple:
+    M = cv2.moments(contour)
+    if M["m00"] != 0.0:
+        x = int(M["m10"]/M["m00"])
+        y = int(M["m01"]/M["m00"])
+    return (x, y)
+
+new_image = Image.new("RGB", (1200, 1200), (255, 255, 255))
+frame = Image.open("images/frames/Frame_3.png")
+new_image.paste(frame, (0, 0), frame)
+
+# convert from PIL.Image to openCV format
+cv2_image = np.array(new_image)
+cv2_image = cv2_image[:, :, ::-1].copy() # RGB to BGR conversion
+
+# find and draw contours
+contours = _contours(cv2_image)
+cv2.drawContours(cv2_image, contours, -1, (0, 255, 0), 3)
+
+for contour in contours:
+    
+    # find polygon and its center point
+    polygon = cv2.approxPolyDP(contour, 0.01 * cv2.arcLength(contour, True), True)
+    center = _center_point(polygon)
+    
+    # get average color
+    x,y,w,h = cv2.boundingRect(contour) # offsets - with this you get 'mask'
+    cv2.rectangle(cv2_image, (x,y), (x+w,y+h), (0,255,0),2)
+    cv2.imshow('cutted contour', cv2_image[y:y+h,x:x+w])
+    print('Average color (BGR): ', np.array(cv2.mean(cv2_image[y:y+h,x:x+w])).astype(np.uint8))
+        
+    if len(polygon) == 3:
+        cv2.putText(cv2_image, 'Triangle', center,
+            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        print('Triangle')
+  
+    elif len(polygon) == 4:
+        cv2.putText(cv2_image, 'Quadrilateral', center,
+            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        print('Quadrilateral')
+        
+    elif len(polygon) == 5:
+        cv2.putText(cv2_image, 'Pentagon', center,
+            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        print('Pentagon')
+  
+    elif len(polygon) == 6:
+        cv2.putText(cv2_image, 'Hexagon', center,
+            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        print('Hexagon')
+  
+    else:
+        cv2.putText(cv2_image, 'Cirlce', center,
+            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        print('Circle')
+            
+plt.imshow(cv2_image)
